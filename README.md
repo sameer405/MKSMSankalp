@@ -139,6 +139,62 @@ curl -X POST http://localhost:3000/api/register \
 }
 ```
 
+#### GET `/api/stats`
+Get comprehensive practice statistics for the community.
+
+**Request:**
+```bash
+curl http://localhost:3000/api/stats
+```
+
+**Response:**
+```json
+{
+  "target": {
+    "minutes": 3060000,
+    "hours": 51000
+  },
+  "collective": {
+    "totalMinutes": 1530000,
+    "totalHours": 25500,
+    "progressPercentage": 50.0,
+    "remainingMinutes": 1530000,
+    "remainingHours": 25500
+  },
+  "community": {
+    "totalUsers": 45,
+    "activeUsers": 38,
+    "totalEntries": 1523
+  },
+  "recentActivity": {
+    "last7Days": {
+      "minutes": 12480,
+      "hours": 208,
+      "entries": 87
+    }
+  },
+  "topPractitioners": [
+    {
+      "regNo": "MKSM123",
+      "totalMinutes": 18000,
+      "totalHours": 300,
+      "entryCount": 150,
+      "averageMinutesPerEntry": 120
+    }
+  ],
+  "userStatistics": [...],
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Features:**
+- No authentication required (public endpoint)
+- Admin-configurable target hours (default: 51,000 hours)
+- Individual user practice totals
+- Collective community progress
+- Top 10 practitioners leaderboard
+- Recent activity tracking (last 7 days)
+
 ### Authenticated Endpoints
 
 All authenticated endpoints require the JWT token in the Authorization header:
@@ -286,6 +342,41 @@ curl -X GET http://localhost:3000/api/admin/metrics \
   },
   "syncRate": 98.36,
   "timestamp": "2024-01-15T12:00:00Z"
+}
+```
+
+#### GET/PUT `/api/admin/settings`
+View and update system settings (like target practice hours).
+
+**Get Settings:**
+```bash
+curl -X GET http://localhost:3000/api/admin/settings \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+**Update Target Hours:**
+```bash
+# Set target to 51,000 hours (3,060,000 minutes)
+curl -X PUT http://localhost:3000/api/admin/settings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -d '{
+    "key": "target_practice_minutes",
+    "value": "3060000"
+  }'
+```
+
+**Response:**
+```json
+{
+  "setting": {
+    "key": "target_practice_minutes",
+    "value": "3060000",
+    "description": "Total target practice minutes for the community (51,000 hours)",
+    "updatedBy": "admin@example.com",
+    "updatedAt": "2024-01-15T12:00:00.000Z"
+  },
+  "message": "Setting updated successfully"
 }
 ```
 

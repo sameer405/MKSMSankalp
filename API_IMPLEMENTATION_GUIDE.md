@@ -477,6 +477,143 @@ Authorization: Bearer {admin-token}
 
 ---
 
+#### 11. Get/Update Settings (Admin)
+```http
+GET https://mksm-sankalp.vercel.app/api/admin/settings
+Authorization: Bearer {admin-token}
+```
+
+**Response (200):**
+```json
+{
+  "settings": [
+    {
+      "key": "target_practice_minutes",
+      "value": "3060000",
+      "description": "Total target practice minutes for the community (51,000 hours)",
+      "updatedBy": "admin@example.com",
+      "updatedAt": "2024-01-15T12:00:00.000Z"
+    }
+  ]
+}
+```
+
+**Update Setting:**
+```http
+PUT https://mksm-sankalp.vercel.app/api/admin/settings
+Content-Type: application/json
+Authorization: Bearer {admin-token}
+```
+
+**Request Body:**
+```json
+{
+  "key": "target_practice_minutes",
+  "value": "3060000"
+}
+```
+
+**Response (200):**
+```json
+{
+  "setting": {
+    "key": "target_practice_minutes",
+    "value": "3060000",
+    "description": "Total target practice minutes for the community (51,000 hours)",
+    "updatedBy": "admin@example.com",
+    "updatedAt": "2024-01-15T12:00:00.000Z"
+  },
+  "message": "Setting updated successfully"
+}
+```
+
+**Notes:**
+- Target is stored in minutes (51,000 hours = 3,060,000 minutes)
+- Only admins can view/update settings
+- All changes are tracked with admin email and timestamp
+
+---
+
+### 📊 Public Stats Endpoint
+
+#### 12. Get Practice Statistics
+```http
+GET https://mksm-sankalp.vercel.app/api/stats
+```
+
+**No authentication required** - Public endpoint for displaying community progress.
+
+**Response (200):**
+```json
+{
+  "target": {
+    "minutes": 3060000,
+    "hours": 51000
+  },
+  "collective": {
+    "totalMinutes": 1530000,
+    "totalHours": 25500,
+    "progressPercentage": 50.0,
+    "remainingMinutes": 1530000,
+    "remainingHours": 25500
+  },
+  "community": {
+    "totalUsers": 45,
+    "activeUsers": 38,
+    "totalEntries": 1523
+  },
+  "recentActivity": {
+    "last7Days": {
+      "minutes": 12480,
+      "hours": 208,
+      "entries": 87
+    }
+  },
+  "topPractitioners": [
+    {
+      "regNo": "MKSM123",
+      "totalMinutes": 18000,
+      "totalHours": 300,
+      "entryCount": 150,
+      "averageMinutesPerEntry": 120
+    }
+  ],
+  "userStatistics": [
+    {
+      "regNo": "MKSM123",
+      "totalMinutes": 18000,
+      "totalHours": 300,
+      "entryCount": 150,
+      "averageMinutesPerEntry": 120
+    }
+  ],
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**Data Explained:**
+- **target**: Admin-configurable target hours (default: 51,000 hours)
+- **collective**: Community-wide progress towards target
+  - `totalMinutes/Hours`: Sum of all practice entries
+  - `progressPercentage`: Progress towards target
+  - `remainingMinutes/Hours`: How much more practice needed
+- **community**: User and entry counts
+  - `totalUsers`: All registered users
+  - `activeUsers`: Users with at least one practice entry
+  - `totalEntries`: Total number of practice entries
+- **recentActivity**: Practice in the last 7 days
+- **topPractitioners**: Top 10 users by total practice hours
+- **userStatistics**: Complete list of all users with practice stats
+
+**Use Cases:**
+- Display community progress on website/app
+- Show leaderboard of top practitioners
+- Track individual user stats
+- Monitor recent activity
+- Calculate remaining hours to reach target
+
+---
+
 ## Implementation Examples
 
 ### React Native / Mobile App
@@ -589,6 +726,37 @@ export const api = {
     }
     
     return response.json();
+  },
+
+  // Get practice statistics (public)
+  async getStats() {
+    const response = await fetch(`${BASE_URL}/api/stats`);
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    
+    return response.json();
+  },
+
+  // Admin: Update settings
+  async updateSettings(token, key, value) {
+    const response = await fetch(`${BASE_URL}/api/admin/settings`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ key, value })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error);
+    }
+    
+    return response.json();
   }
 };
 ```
@@ -685,6 +853,59 @@ async function loadHistory(page = 0) {
     
     setEntries(entries);
     setHasMore(pagination.hasMore);
+  } catch (error) {
+    Alert.alert('Error', error.message);
+  }
+}
+
+// Load and Display Statistics
+async function loadStatistics() {
+  try {
+    const stats = await api.getStats();
+    
+    // Display community progress
+    console.log(`Progress: ${stats.collective.progressPercentage}%`);
+    console.log(`Total Hours: ${stats.collective.totalHours} / ${stats.target.hours}`);
+    console.log(`Remaining: ${stats.collective.remainingHours} hours`);
+    
+    // Display top practitioners
+    stats.topPractitioners.forEach((user, index) => {
+      console.log(`#${index + 1}: ${user.regNo} - ${user.totalHours} hours`);
+    });
+    
+    // Find current user's stats
+    const currentUser = await AsyncStorage.getItem('user');
+    if (currentUser) {
+      const { regNo } = JSON.parse(currentUser);
+      const userStat = stats.userStatistics.find(u => u.regNo === regNo);
+      
+      if (userStat) {
+        console.log(`Your total: ${userStat.totalHours} hours`);
+        console.log(`Your entries: ${userStat.entryCount}`);
+      }
+    }
+    
+    setStats(stats);
+  } catch (error) {
+    Alert.alert('Error', error.message);
+  }
+}
+
+// Admin: Update Target Hours
+async function updateTargetHours(newTargetHours) {
+  try {
+    const token = await AsyncStorage.getItem('authToken');
+    const targetMinutes = newTargetHours * 60;
+    
+    const { setting } = await api.updateSettings(
+      token,
+      'target_practice_minutes',
+      targetMinutes.toString()
+    );
+    
+    Alert.alert('Success', `Target updated to ${newTargetHours} hours`);
+    // Reload statistics to reflect new target
+    loadStatistics();
   } catch (error) {
     Alert.alert('Error', error.message);
   }
@@ -931,6 +1152,7 @@ try {
 | `/api/health` | GET | Public | System status check |
 | `/api/register` | POST | Public | Register new user & get token |
 | `/api/login` | POST | Public | Login existing user & get token |
+| `/api/stats` | GET | Public | Get practice statistics & leaderboard |
 | `/api/practice` | POST | User | Create practice entry |
 | `/api/history` | GET | User | Get practice history (paginated) |
 | `/api/practice/:id` | PUT | User | Update practice entry |
@@ -938,6 +1160,7 @@ try {
 | `/api/admin/failed-syncs` | GET | Admin | View entries that failed to sync |
 | `/api/admin/resync` | POST | Admin | Manually trigger Airtable sync |
 | `/api/admin/metrics` | GET | Admin | View system metrics & stats |
+| `/api/admin/settings` | GET/PUT | Admin | View/update system settings |
 
 **Base URL:** `https://mksm-sankalp.vercel.app`
 
@@ -961,11 +1184,20 @@ curl -X POST https://mksm-sankalp.vercel.app/api/login \
   -H "Content-Type: application/json" \
   -d '{"regNo":"TEST001","email":"test@example.com"}'
 
+# Get statistics (no auth required)
+curl https://mksm-sankalp.vercel.app/api/stats
+
 # Create entry (use token from above)
 curl -X POST https://mksm-sankalp.vercel.app/api/practice \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{"entryClientId":"550e8400-e29b-41d4-a716-446655440000","date":"2024-01-15","minutes":60}'
+
+# Admin: Update target hours (admin token required)
+curl -X PUT https://mksm-sankalp.vercel.app/api/admin/settings \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ADMIN_TOKEN" \
+  -d '{"key":"target_practice_minutes","value":"3060000"}'
 ```
 
 ---
