@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-      entries: entries?.map((entry: any) => ({
+      entries: entries?.map((entry) => ({
         id: entry.id,
         entryClientId: entry.entry_client_id,
         regNo: entry.reg_no,
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
       })) || [],
       summary: {
         total: entries?.length || 0,
-        neverAttempted: entries?.filter((e: any) => e.sync_attempts === 0).length || 0,
-        failedRetries: entries?.filter((e: any) => e.sync_attempts > 0).length || 0,
+        neverAttempted: entries?.filter((e) => e.sync_attempts === 0).length || 0,
+        failedRetries: entries?.filter((e) => e.sync_attempts > 0).length || 0,
       },
     });
   } catch (error) {

@@ -32,9 +32,9 @@ const getSupabaseClient = () => {
 
 // Export a proxy that initializes on first use
 export const supabase = new Proxy({} as SupabaseClient, {
-  get: (target, prop) => {
+  get: (_target, prop) => {
     const client = getSupabaseClient();
-    return (client as any)[prop];
+    return client[prop as keyof SupabaseClient];
   },
 });
 
