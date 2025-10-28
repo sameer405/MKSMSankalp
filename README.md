@@ -408,7 +408,7 @@ See the curl examples above for each endpoint.
 
 ### JWT Token Issues
 - Ensure `JWT_SIGNING_SECRET` is set
-- Token expires after 30 days (re-register to get new token)
+- Tokens do not expire (use login endpoint to get new token if needed)
 - Verify Authorization header format: `Bearer <token>`
 
 ## Project Structure

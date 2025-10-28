@@ -515,8 +515,8 @@ chmod +x test-api.sh
 - Is the token exported? Check with `echo $USER_TOKEN`
 
 **"Invalid token"**
-- Token might be expired (30 days)
-- Register again to get a new token
+- Token might be malformed or corrupt
+- Use the login endpoint to get a new token
 - Check for extra spaces or quotes
 
 **"Entry not found"**

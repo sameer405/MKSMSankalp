@@ -136,8 +136,8 @@ Check your Airtable base - the entry should appear!
 - Ensure Personal Access Token has write permissions
 
 ### "Invalid token"
-- Token might be expired (30 days)
-- Re-register to get a new token
+- Token might be malformed or corrupt
+- Use the login endpoint to get a new token
 - Check JWT_SIGNING_SECRET is set
 
 ## Next Steps

@@ -57,7 +57,7 @@ MKSM/
 
 1. **User Registration** (`POST /api/register`)
    - Upsert user with reg_no, firstName, lastName, email, batch
-   - JWT token generation (30-day expiry)
+   - JWT token generation (no expiry)
    - Rate limiting per reg_no
    - Input validation
 
@@ -96,9 +96,9 @@ MKSM/
 ### ✅ Security & Performance
 
 1. **Authentication & Authorization**
-   - JWT-based authentication
+   - JWT-based authentication (tokens do not expire)
    - Admin role verification
-   - Token expiry handling
+   - Login endpoint for returning users
 
 2. **Rate Limiting**
    - 200 requests/hour per user (configurable)

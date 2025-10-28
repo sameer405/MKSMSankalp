@@ -2,8 +2,6 @@ import jwt from 'jsonwebtoken';
 import { AuthError } from './errors';
 import { NextRequest } from 'next/server';
 
-const JWT_EXPIRY = '30d'; // 30 days
-
 // Runtime validation helper
 const getJwtSecret = (): string => {
   if (!process.env.JWT_SIGNING_SECRET) {
@@ -17,15 +15,13 @@ export interface TokenPayload {
   reg_no: string;
   email: string;
   iat?: number;
-  exp?: number;
 }
 
-// Sign a JWT token
-export const signToken = (payload: Omit<TokenPayload, 'iat' | 'exp'>): string => {
+// Sign a JWT token (no expiry)
+export const signToken = (payload: Omit<TokenPayload, 'iat'>): string => {
   const secret = getJwtSecret();
-  return jwt.sign(payload, secret, {
-    expiresIn: JWT_EXPIRY,
-  });
+  // No expiration - token is valid indefinitely
+  return jwt.sign(payload, secret);
 };
 
 // Verify and decode a JWT token
@@ -35,9 +31,6 @@ export const verifyToken = (token: string): TokenPayload => {
     const decoded = jwt.verify(token, secret) as TokenPayload;
     return decoded;
   } catch (error) {
-    if (error instanceof jwt.TokenExpiredError) {
-      throw new AuthError('Token has expired');
-    }
     if (error instanceof jwt.JsonWebTokenError) {
       throw new AuthError('Invalid token');
     }
