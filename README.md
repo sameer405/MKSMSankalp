@@ -140,11 +140,16 @@ curl -X POST http://localhost:3000/api/register \
 ```
 
 #### GET `/api/stats`
-Get comprehensive practice statistics for the community.
+Get comprehensive practice statistics for the community or a specific user.
 
-**Request:**
+**Request (Community Stats):**
 ```bash
 curl http://localhost:3000/api/stats
+```
+
+**Request (User-Specific Stats):**
+```bash
+curl http://localhost:3000/api/stats?regNo=MKSM123
 ```
 
 **Response:**
@@ -189,11 +194,13 @@ curl http://localhost:3000/api/stats
 
 **Features:**
 - No authentication required (public endpoint)
+- **Query by regNo** to get user-specific stats with ranking and percentile
 - Admin-configurable target hours (default: 51,000 hours)
 - Individual user practice totals
 - Collective community progress
 - Top 10 practitioners leaderboard
 - Recent activity tracking (last 7 days)
+- User ranking and community contribution percentage
 
 ### Authenticated Endpoints
 

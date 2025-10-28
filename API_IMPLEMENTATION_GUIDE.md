@@ -539,11 +539,15 @@ Authorization: Bearer {admin-token}
 #### 12. Get Practice Statistics
 ```http
 GET https://mksm-sankalp.vercel.app/api/stats
+GET https://mksm-sankalp.vercel.app/api/stats?regNo=MKSM123
 ```
 
 **No authentication required** - Public endpoint for displaying community progress.
 
-**Response (200):**
+**Query Parameters:**
+- `regNo` (optional): Get stats for a specific user by registration number
+
+**Response (200) - Community Stats (no regNo):**
 ```json
 {
   "target": {
@@ -611,6 +615,85 @@ GET https://mksm-sankalp.vercel.app/api/stats
 - Track individual user stats
 - Monitor recent activity
 - Calculate remaining hours to reach target
+
+---
+
+**Response (200) - User-Specific Stats (with regNo):**
+```json
+{
+  "user": {
+    "regNo": "MKSM123",
+    "firstName": "Sameer",
+    "lastName": "Patil",
+    "email": "sameer@example.com",
+    "batch": "Batch A"
+  },
+  "practice": {
+    "totalMinutes": 18000,
+    "totalHours": 300,
+    "entryCount": 150,
+    "averageMinutesPerEntry": 120,
+    "averageHoursPerEntry": 2
+  },
+  "ranking": {
+    "rank": 3,
+    "totalActiveUsers": 38,
+    "percentile": 94.74
+  },
+  "contribution": {
+    "percentage": 1.18,
+    "communityTotal": {
+      "minutes": 1530000,
+      "hours": 25500
+    },
+    "target": {
+      "minutes": 3060000,
+      "hours": 51000
+    }
+  },
+  "recentActivity": {
+    "last7Days": {
+      "minutes": 840,
+      "hours": 14,
+      "entries": 7
+    }
+  },
+  "recentEntries": [
+    {
+      "date": "2024-01-15",
+      "minutes": 120,
+      "hours": 2,
+      "practiceText": "Practiced scales and arpeggios",
+      "sankalpWord": "Focus"
+    }
+  ],
+  "timestamp": "2024-01-15T12:00:00.000Z"
+}
+```
+
+**User Stats Explained:**
+- **user**: Basic user information
+- **practice**: Total practice statistics
+  - `totalMinutes/Hours`: All-time practice total
+  - `entryCount`: Number of practice entries
+  - `averageMinutesPerEntry`: Average session length
+- **ranking**: Community position
+  - `rank`: Position in leaderboard (1 = top)
+  - `totalActiveUsers`: Total users with practice entries
+  - `percentile`: Ranking as percentile (higher is better)
+- **contribution**: Percentage of community total
+  - `percentage`: User's share of total community practice
+  - `communityTotal`: Current total for all users
+  - `target`: Admin-set target hours
+- **recentActivity**: Practice in last 7 days
+- **recentEntries**: Last 10 practice entries with details
+
+**Use Cases for User-Specific Stats:**
+- Display user profile with practice history
+- Show user's rank and percentile
+- Track personal progress over time
+- Show recent practice sessions
+- Compare user's contribution to community goal
 
 ---
 
@@ -729,8 +812,12 @@ export const api = {
   },
 
   // Get practice statistics (public)
-  async getStats() {
-    const response = await fetch(`${BASE_URL}/api/stats`);
+  async getStats(regNo = null) {
+    const url = regNo 
+      ? `${BASE_URL}/api/stats?regNo=${encodeURIComponent(regNo)}`
+      : `${BASE_URL}/api/stats`;
+    
+    const response = await fetch(url);
     
     if (!response.ok) {
       const error = await response.json();
@@ -858,10 +945,10 @@ async function loadHistory(page = 0) {
   }
 }
 
-// Load and Display Statistics
-async function loadStatistics() {
+// Load Community Statistics
+async function loadCommunityStats() {
   try {
-    const stats = await api.getStats();
+    const stats = await api.getStats(); // No regNo = community stats
     
     // Display community progress
     console.log(`Progress: ${stats.collective.progressPercentage}%`);
@@ -873,19 +960,46 @@ async function loadStatistics() {
       console.log(`#${index + 1}: ${user.regNo} - ${user.totalHours} hours`);
     });
     
-    // Find current user's stats
+    setCommunityStats(stats);
+  } catch (error) {
+    Alert.alert('Error', error.message);
+  }
+}
+
+// Load Specific User Statistics
+async function loadUserStats(regNo) {
+  try {
+    const userStats = await api.getStats(regNo); // With regNo = user-specific stats
+    
+    // Display user info
+    console.log(`User: ${userStats.user.firstName} ${userStats.user.lastName}`);
+    console.log(`Total Practice: ${userStats.practice.totalHours} hours`);
+    console.log(`Rank: #${userStats.ranking.rank} of ${userStats.ranking.totalActiveUsers}`);
+    console.log(`Percentile: ${userStats.ranking.percentile}%`);
+    console.log(`Community Contribution: ${userStats.contribution.percentage}%`);
+    
+    // Display recent activity
+    console.log(`Last 7 days: ${userStats.recentActivity.last7Days.hours} hours`);
+    
+    // Display recent entries
+    userStats.recentEntries.forEach((entry) => {
+      console.log(`${entry.date}: ${entry.hours} hours - ${entry.sankalpWord}`);
+    });
+    
+    setUserStats(userStats);
+  } catch (error) {
+    Alert.alert('Error', error.message);
+  }
+}
+
+// Load Current User's Stats
+async function loadMyStats() {
+  try {
     const currentUser = await AsyncStorage.getItem('user');
     if (currentUser) {
       const { regNo } = JSON.parse(currentUser);
-      const userStat = stats.userStatistics.find(u => u.regNo === regNo);
-      
-      if (userStat) {
-        console.log(`Your total: ${userStat.totalHours} hours`);
-        console.log(`Your entries: ${userStat.entryCount}`);
-      }
+      await loadUserStats(regNo);
     }
-    
-    setStats(stats);
   } catch (error) {
     Alert.alert('Error', error.message);
   }
@@ -1184,8 +1298,11 @@ curl -X POST https://mksm-sankalp.vercel.app/api/login \
   -H "Content-Type: application/json" \
   -d '{"regNo":"TEST001","email":"test@example.com"}'
 
-# Get statistics (no auth required)
+# Get community statistics (no auth required)
 curl https://mksm-sankalp.vercel.app/api/stats
+
+# Get user-specific statistics (no auth required)
+curl https://mksm-sankalp.vercel.app/api/stats?regNo=MKSM123
 
 # Create entry (use token from above)
 curl -X POST https://mksm-sankalp.vercel.app/api/practice \

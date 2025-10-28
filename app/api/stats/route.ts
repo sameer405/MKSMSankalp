@@ -1,10 +1,154 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { handleApiError } from '@/lib/errors';
+import { handleApiError, NotFoundError } from '@/lib/errors';
 import { logger } from '@/lib/logger';
 
-export async function GET() {
+// Helper function to get specific user stats
+async function getUserStats(regNo: string) {
+  logger.info('Fetching user-specific statistics', { regNo });
+
+  // Get user info
+  const { data: user, error: userError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('reg_no', regNo)
+    .single();
+
+  if (userError || !user) {
+    throw new NotFoundError(`User with registration number ${regNo} not found`);
+  }
+
+  // Get user's practice entries
+  const { data: userEntries, error: entriesError } = await supabase
+    .from('practice_entries')
+    .select('minutes, date, practice_text, sankalp_word, created_at')
+    .eq('reg_no', regNo)
+    .order('date', { ascending: false });
+
+  if (entriesError) {
+    throw new Error(`Failed to fetch user entries: ${entriesError.message}`);
+  }
+
+  const totalMinutes = userEntries?.reduce((sum, entry) => sum + entry.minutes, 0) || 0;
+  const totalHours = totalMinutes / 60;
+  const entryCount = userEntries?.length || 0;
+  const averageMinutesPerEntry = entryCount > 0 ? totalMinutes / entryCount : 0;
+
+  // Get user's recent activity (last 7 days)
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const recentEntries = userEntries?.filter(
+    (entry) => new Date(entry.created_at) >= sevenDaysAgo
+  ) || [];
+
+  const recentMinutes = recentEntries.reduce((sum, entry) => sum + entry.minutes, 0);
+  const recentHours = recentMinutes / 60;
+
+  // Get all users' total minutes to calculate rank
+  const { data: allUserStats, error: allStatsError } = await supabase
+    .from('practice_entries')
+    .select('reg_no, minutes');
+
+  if (allStatsError) {
+    throw new Error(`Failed to fetch all user stats: ${allStatsError.message}`);
+  }
+
+  // Aggregate by user to calculate rank
+  const userTotalsMap = new Map<string, number>();
+  allUserStats?.forEach((entry) => {
+    const existing = userTotalsMap.get(entry.reg_no) || 0;
+    userTotalsMap.set(entry.reg_no, existing + entry.minutes);
+  });
+
+  const sortedUsers = Array.from(userTotalsMap.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([regNo]) => regNo);
+
+  const rank = sortedUsers.indexOf(regNo) + 1;
+  const totalActiveUsers = sortedUsers.length;
+
+  // Get target from settings
+  const { data: targetSetting } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'target_practice_minutes')
+    .single();
+
+  const targetMinutes = parseInt(targetSetting?.value || '3060000', 10);
+  const targetHours = targetMinutes / 60;
+
+  // Get community total for percentage calculation
+  const communityTotal = Array.from(userTotalsMap.values()).reduce((sum, val) => sum + val, 0);
+  const userContributionPercentage = communityTotal > 0 ? (totalMinutes / communityTotal) * 100 : 0;
+
+  logger.info('User statistics fetched successfully', {
+    regNo,
+    totalHours,
+    rank,
+  });
+
+  return NextResponse.json({
+    user: {
+      regNo: user.reg_no,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email,
+      batch: user.batch,
+    },
+    practice: {
+      totalMinutes,
+      totalHours: parseFloat(totalHours.toFixed(2)),
+      entryCount,
+      averageMinutesPerEntry: parseFloat(averageMinutesPerEntry.toFixed(2)),
+      averageHoursPerEntry: parseFloat((averageMinutesPerEntry / 60).toFixed(2)),
+    },
+    ranking: {
+      rank,
+      totalActiveUsers,
+      percentile: parseFloat(((1 - (rank - 1) / totalActiveUsers) * 100).toFixed(2)),
+    },
+    contribution: {
+      percentage: parseFloat(userContributionPercentage.toFixed(2)),
+      communityTotal: {
+        minutes: communityTotal,
+        hours: parseFloat((communityTotal / 60).toFixed(2)),
+      },
+      target: {
+        minutes: targetMinutes,
+        hours: targetHours,
+      },
+    },
+    recentActivity: {
+      last7Days: {
+        minutes: recentMinutes,
+        hours: parseFloat(recentHours.toFixed(2)),
+        entries: recentEntries.length,
+      },
+    },
+    recentEntries: recentEntries.slice(0, 10).map((entry) => ({
+      date: entry.date,
+      minutes: entry.minutes,
+      hours: parseFloat((entry.minutes / 60).toFixed(2)),
+      practiceText: entry.practice_text,
+      sankalpWord: entry.sankalp_word,
+    })),
+    timestamp: new Date().toISOString(),
+  });
+}
+
+export async function GET(request: NextRequest) {
   try {
+    // Check if specific user stats requested
+    const { searchParams } = new URL(request.url);
+    const regNo = searchParams.get('regNo');
+
+    if (regNo) {
+      // Return specific user stats
+      return getUserStats(regNo);
+    }
+
+    // Return community-wide stats
     logger.info('Fetching practice statistics');
 
     // Get target practice minutes from settings
