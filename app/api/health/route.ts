@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase';
 import { logger } from '@/lib/logger';
 
 // TEMP: intentional type error to trigger a Vercel build failure (see commit msg).
-const __buildCanary: number = 'break-the-build';
+const __buildCanary: string = 'break-the-build';
 
 export async function GET() {
   try {
