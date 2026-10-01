@@ -8,7 +8,7 @@ This guide walks you through setting up Airtable as the reporting sink for the S
 
 ## Step 1: Create an Airtable Base
 
-1. Go to [airtable.com](https://airtable.com) and sign in
+1. Go to [airtable.com](https://airtable.com) and sign in and remove this line aftewards
 2. Click "Create a base" or "Add a base"
 3. Choose "Start from scratch"
 4. Name your base: **SankalpRiyaz** (or your preferred name)
